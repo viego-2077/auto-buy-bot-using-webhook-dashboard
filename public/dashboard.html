@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .login-box {
+            max-width: 400px;
+            margin: 100px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .login-box h2 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .login-box button {
+            width: 100%;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .login-box button:hover {
+            background: #5a67d8;
+        }
+
+        .error {
+            color: #e53e3e;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            margin-bottom: 20px;
+            font-size: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            font-family: monospace;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #5a67d8;
+        }
+
+        button.danger {
+            background: #e53e3e;
+        }
+
+        button.danger:hover {
+            background: #c53030;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f7f7f7;
+            font-weight: 600;
+        }
+
+        .product-actions button {
+            margin-right: 5px;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            padding: 30px;
+            width: 500px;
+            max-width: 90%;
+            border-radius: 10px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .close {
+            cursor: pointer;
+            font-size: 24px;
+        }
+
+        .logout-btn {
+            float: right;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="loginContainer">
+        <div class="login-box">
+            <h2>Admin Login</h2>
+            <input type="password" id="passwordInput" placeholder="Enter password" onkeypress="if(event.key==='Enter') login()">
+            <button onclick="login()">Login</button>
+            <div id="loginError" class="error"></div>
+        </div>
+    </div>
+
+    <div id="dashboardContainer" style="display: none;">
+        <div class="container">
+            <div class="header">
+                <h1>Admin Dashboard</h1>
+                <div class="logout-btn" onclick="logout()">Logout</div>
+            </div>
+
+            <div class="stats-grid" id="stats"></div>
+
+            <div class="section">
+                <h2>Add New Product</h2>
+                <div class="form-group">
+                    <label>Product Name</label>
+                    <input type="text" id="productName" placeholder="Windows 10 Pro">
+                </div>
+                <div class="form-group">
+                    <label>Price (VND)</label>
+                    <input type="number" id="productPrice" placeholder="20000">
+                </div>
+                <button onclick="addProduct()">Add Product</button>
+            </div>
+
+            <div class="section">
+                <h2>Products Management</h2>
+                <table id="productsTable">
+                    <thead>
+                        <tr><th>ID</th><th>Name</th><th>Price</th><th>Stock</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2>Pending Orders</h2>
+                <table id="pendingOrdersTable">
+                    <thead><tr><th>Code</th><th>User</th><th>Product</th><th>Quantity</th><th>Amount</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2>Completed Orders</h2>
+                <table id="completedOrdersTable">
+                    <thead><tr><th>Code</th><th>User</th><th>Product</th><th>Quantity</th><th>Amount</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="addKeysModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Keys</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="form-group">
+                <label>Keys (one per line)</label>
+                <textarea id="keysList" rows="10" placeholder="KEY1-XXXX-XXXX&#10;KEY2-YYYY-YYYY"></textarea>
+            </div>
+            <button onclick="submitKeys()">Add Keys</button>
+        </div>
+    </div>
+
+    <script>
+        let currentProductId = null;
+        let currentPassword = '';
+
+        function login() {
+            currentPassword = document.getElementById('passwordInput').value;
+            if (!currentPassword) {
+                document.getElementById('loginError').textContent = 'Please enter password';
+                return;
+            }
+            
+            // Test login bằng cách gọi API
+            fetchAPI('/api/stats')
+                .then(response => {
+                    if (response && response.ok) {
+                        document.getElementById('loginContainer').style.display = 'none';
+                        document.getElementById('dashboardContainer').style.display = 'block';
+                        loadStats();
+                        loadProducts();
+                        loadOrders();
+                    } else {
+                        document.getElementById('loginError').textContent = 'Invalid password';
+                        currentPassword = '';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('loginError').textContent = 'Invalid password';
+                    currentPassword = '';
+                });
+        }
+
+        function logout() {
+            currentPassword = '';
+            document.getElementById('loginContainer').style.display = 'block';
+            document.getElementById('dashboardContainer').style.display = 'none';
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('loginError').textContent = '';
+        }
+
+        async function fetchAPI(endpoint, options = {}) {
+            const response = await fetch(endpoint, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Password': currentPassword,
+                    ...options.headers
+                }
+            });
+            
+            if (response.status === 401) {
+                alert('Session expired. Please login again.');
+                logout();
+                return null;
+            }
+            return response;
+        }
+
+        async function loadStats() {
+            const response = await fetchAPI('/api/stats');
+            if (!response || !response.ok) return;
+            const stats = await response.json();
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card"><h3>Products</h3><div class="value">${stats.products}</div></div>
+                <div class="stat-card"><h3>Total Keys</h3><div class="value">${stats.totalKeys}</div></div>
+                <div class="stat-card"><h3>Available Keys</h3><div class="value">${stats.availableKeys}</div></div>
+                <div class="stat-card"><h3>Used Keys</h3><div class="value">${stats.usedKeys}</div></div>
+                <div class="stat-card"><h3>Pending Orders</h3><div class="value">${stats.pendingOrders}</div></div>
+                <div class="stat-card"><h3>Completed Orders</h3><div class="value">${stats.completedOrders}</div></div>
+            `;
+        }
+
+        async function loadProducts() {
+            const response = await fetchAPI('/api/products');
+            if (!response || !response.ok) return;
+            const products = await response.json();
+            const tbody = document.querySelector('#productsTable tbody');
+            tbody.innerHTML = '';
+            products.forEach(product => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = product.id;
+                row.insertCell(1).textContent = product.name;
+                row.insertCell(2).textContent = product.price.toLocaleString() + ' VND';
+                row.insertCell(3).textContent = product.stock;
+                const actions = row.insertCell(4);
+                actions.className = 'product-actions';
+                actions.innerHTML = `
+                    <button onclick="showAddKeys(${product.id})">Add Keys</button>
+                    <button onclick="editProduct(${product.id})">Edit</button>
+                    <button class="danger" onclick="deleteProduct(${product.id})">Delete</button>
+                `;
+            });
+        }
+
+        async function loadOrders() {
+            const pendingResponse = await fetchAPI('/api/orders/pending');
+            const completedResponse = await fetchAPI('/api/orders/completed');
+            
+            if (pendingResponse && pendingResponse.ok) {
+                const orders = await pendingResponse.json();
+                const tbody = document.querySelector('#pendingOrdersTable tbody');
+                tbody.innerHTML = '';
+                orders.forEach(order => {
+                    const row = tbody.insertRow();
+                    row.insertCell(0).textContent = order.code;
+                    row.insertCell(1).textContent = order.user_id;
+                    row.insertCell(2).textContent = order.product_name;
+                    row.insertCell(3).textContent = order.quantity;
+                    row.insertCell(4).textContent = order.amount.toLocaleString() + ' VND';
+                });
+            }
+            
+            if (completedResponse && completedResponse.ok) {
+                const orders = await completedResponse.json();
+                const tbody = document.querySelector('#completedOrdersTable tbody');
+                tbody.innerHTML = '';
+                orders.forEach(order => {
+                    const row = tbody.insertRow();
+                    row.insertCell(0).textContent = order.code;
+                    row.insertCell(1).textContent = order.user_id;
+                    row.insertCell(2).textContent = order.product_name;
+                    row.insertCell(3).textContent = order.quantity;
+                    row.insertCell(4).textContent = order.amount.toLocaleString() + ' VND';
+                });
+            }
+        }
+
+        async function addProduct() {
+            const name = document.getElementById('productName').value;
+            const price = parseInt(document.getElementById('productPrice').value);
+            if (!name || !price) {
+                alert('Please fill all fields');
+                return;
+            }
+            const response = await fetchAPI('/api/products', {
+                method: 'POST',
+                body: JSON.stringify({ name, price })
+            });
+            if (response && response.ok) {
+                alert('Product added successfully');
+                document.getElementById('productName').value = '';
+                document.getElementById('productPrice').value = '';
+                await loadProducts();
+                await loadStats();
+            } else if (response) {
+                const error = await response.json();
+                alert('Error: ' + error.error);
+            }
+        }
+
+        function showAddKeys(productId) {
+            currentProductId = productId;
+            document.getElementById('addKeysModal').style.display = 'block';
+        }
+
+        async function submitKeys() {
+            const keysText = document.getElementById('keysList').value;
+            const keys = keysText.split('\n').map(k => k.trim()).filter(k => k);
+            if (keys.length === 0) {
+                alert('Please enter at least one key');
+                return;
+            }
+            const response = await fetchAPI(`/api/products/${currentProductId}/keys`, {
+                method: 'POST',
+                body: JSON.stringify({ keys })
+            });
+            if (response && response.ok) {
+                const result = await response.json();
+                alert(`Added ${result.added} keys successfully`);
+                document.getElementById('keysList').value = '';
+                closeModal();
+                await loadProducts();
+                await loadStats();
+            } else if (response) {
+                const error = await response.json();
+                alert('Error: ' + error.error);
+            }
+        }
+
+        async function editProduct(productId) {
+            const newName = prompt('Enter new name (leave empty to keep current):');
+            const newPrice = prompt('Enter new price (VND):');
+            if (!newPrice && !newName) return;
+            const response = await fetchAPI(`/api/products/${productId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ name: newName || undefined, price: parseInt(newPrice) })
+            });
+            if (response && response.ok) {
+                alert('Product updated successfully');
+                await loadProducts();
+            } else if (response) {
+                const error = await response.json();
+                alert('Error: ' + error.error);
+            }
+        }
+
+        async function deleteProduct(productId) {
+            if (!confirm('Are you sure? This will delete all keys for this product.')) return;
+            const response = await fetchAPI(`/api/products/${productId}`, { method: 'DELETE' });
+            if (response && response.ok) {
+                alert('Product deleted successfully');
+                await loadProducts();
+                await loadStats();
+            } else if (response) {
+                const error = await response.json();
+                alert('Error: ' + error.error);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('addKeysModal').style.display = 'none';
+            currentProductId = null;
+        }
+
+        document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>
