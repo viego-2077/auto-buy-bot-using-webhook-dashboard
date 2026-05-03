@@ -1,3 +1,4 @@
+
 const Database = require("better-sqlite3");
 const path = require("path");
 
@@ -37,9 +38,23 @@ class DatabaseManager {
         channel_id TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         completed_at DATETIME,
-        FOREIGN KEY (product_id) REFERENCES products(id)
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS processed_webhook_ids (
+        id TEXT PRIMARY KEY
       );
     `);
+  }
+
+  isProcessed(id) {
+    const stmt = this.db.prepare("SELECT id FROM processed_webhook_ids WHERE id = ?");
+    return !!stmt.get(id);
+  }
+
+  markProcessed(id) {
+    const stmt = this.db.prepare("INSERT INTO processed_webhook_ids (id) VALUES (?)");
+    stmt.run(id);
   }
 
   getDatabaseStats() {
@@ -96,19 +111,45 @@ class DatabaseManager {
   }
 
   updateProduct(id, name, price) {
+    const product = this.getProduct(id);
+    if (!product) {
+      throw new Error(`Product with id ${id} not found.`);
+    }
+
+    const newName = name !== undefined ? name : product.name;
+    const newPrice = price !== undefined ? price : product.price;
+    
+    if (String(newName).trim() === '') {
+        throw new Error('Product name cannot be empty.');
+    }
+    if (Number(newPrice) <= 0) {
+        throw new Error('Price must be a positive number.');
+    }
+
     const stmt = this.db.prepare("UPDATE products SET name = ?, price = ? WHERE id = ?");
-    stmt.run(name, price, id);
+    stmt.run(newName, newPrice, id);
+    return this.getProduct(id);
   }
 
   deleteProduct(id) {
     const product = this.getProduct(id);
-    this.db.prepare("DELETE FROM keys WHERE product_id = ?").run(id);
-    this.db.prepare("DELETE FROM products WHERE id = ?").run(id);
+    if (!product) {
+      throw new Error(`Product with id ${id} not found.`);
+    }
+    const transaction = this.db.transaction(() => {
+      this.db.prepare("DELETE FROM orders WHERE product_id = ?").run(id);
+      this.db.prepare("DELETE FROM keys WHERE product_id = ?").run(id);
+      this.db.prepare("DELETE FROM products WHERE id = ?").run(id);
+    });
+    transaction();
     return { deletedProduct: product.name };
   }
 
   createOrder(code, userId, productId, quantity, amount, messageId, channelId) {
     const product = this.getProduct(productId);
+    if (!product) {
+        throw new Error(`Product with id ${productId} not found`);
+    }
     const stmt = this.db.prepare(`
       INSERT INTO orders (code, user_id, product_id, product_name, quantity, amount, message_id, channel_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)

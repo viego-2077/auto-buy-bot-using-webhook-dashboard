@@ -20,9 +20,21 @@ const {
 const db = require("./database");
 
 const app = express();
+
+// Middleware to handle browser preflight requests for PUT/DELETE
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Password');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 9023;
 const OWNER_ID = process.env.OWNER_ID;
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || "admin123";
 
@@ -62,12 +74,12 @@ function extractCode(data) {
 client.once("ready", () => {
   console.log(`Bot logged in: ${client.user.tag}`);
   
-//  const stats = db.getDatabaseStats();
-//  console.log("Database stats:", stats);
+  const stats = db.getDatabaseStats();
+  console.log("Database stats:", stats);
   
-//  const products = db.getProducts(true);
-//  console.log(`Available products: ${products.length}`);
-//  products.forEach(p => console.log(`  - ${p.name}: ${p.stock} keys, ${p.price} VND`));
+  const products = db.getProducts(true);
+  console.log(`Available products: ${products.length}`);
+  products.forEach(p => console.log(`  - ${p.name}: ${p.stock} keys, ${p.price} VND`));
 });
 
 client.on("messageCreate", async (msg) => {
@@ -556,6 +568,19 @@ app.get("/api/products", auth, (req, res) => {
   res.json(products);
 });
 
+// THIS IS THE ENDPOINT THAT WAS MISSING
+app.get("/api/products/:id", auth, (req, res) => {
+    try {
+        const product = db.getProduct(parseInt(req.params.id));
+        if (!product) {
+            return res.status(404).json({ error: "Product not found" });
+        }
+        res.json(product);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post("/api/products", auth, (req, res) => {
   const { name, price } = req.body;
   if (!name || !price) {
@@ -602,25 +627,16 @@ app.delete("/api/products/:id", auth, (req, res) => {
 });
 
 app.get("/api/orders/pending", auth, (req, res) => {
-  try {
-    const orders = db.getPendingOrders();
-    res.json(orders);
-  } catch (err) {
-    console.error("Error getting pending orders:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+  const orders = db.getPendingOrders();
+  res.json(orders);
 });
 
 app.get("/api/orders/completed", auth, (req, res) => {
-  try {
-    const orders = db.getCompletedOrders();
-    res.json(orders);
-  } catch (err) {
-    console.error("Error getting completed orders:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+  const orders = db.getCompletedOrders();
+  res.json(orders);
 });
 
+// Phục vụ file dashboard.html
 app.get("/dashboard", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "dashboard.html"));
 });

@@ -198,11 +198,12 @@
             height: 100%;
             background: rgba(0,0,0,0.5);
             z-index: 1000;
+            align-items: center;
+            justify-content: center;
         }
 
         .modal-content {
             background: white;
-            margin: 50px auto;
             padding: 30px;
             width: 500px;
             max-width: 90%;
@@ -212,6 +213,7 @@
         .modal-header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             margin-bottom: 20px;
         }
 
@@ -278,7 +280,7 @@
             <div class="section">
                 <h2>Pending Orders</h2>
                 <table id="pendingOrdersTable">
-                    <thead><tr><th>Code</th><th>User</th><th>Product</th><th>Quantity</th><th>Amount</th></tr></thead>
+                    <thead><tr><th>Code</th><th>User</th><th>Product</th><th>Quantity</th><th>Amount</th><th>Status</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -286,7 +288,7 @@
             <div class="section">
                 <h2>Completed Orders</h2>
                 <table id="completedOrdersTable">
-                    <thead><tr><th>Code</th><th>User</th><th>Product</th><th>Quantity</th><th>Amount</th></tr></thead>
+                    <thead><tr><th>Code</th><th>User</th><th>Product</th><th>Quantity</th><th>Amount</th><th>Status</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -297,7 +299,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Add Keys</h3>
-                <span class="close" onclick="closeModal()">&times;</span>
+                <span class="close" onclick="closeModal('addKeysModal')">&times;</span>
             </div>
             <div class="form-group">
                 <label>Keys (one per line)</label>
@@ -307,8 +309,26 @@
         </div>
     </div>
 
+    <div id="editProductModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Product</h3>
+                <span class="close" onclick="closeModal('editProductModal')">&times;</span>
+            </div>
+            <input type="hidden" id="editProductId">
+            <div class="form-group">
+                <label>Product Name</label>
+                <input type="text" id="editProductName">
+            </div>
+            <div class="form-group">
+                <label>Price (VND)</label>
+                <input type="number" id="editProductPrice">
+            </div>
+            <button onclick="submitEditProduct()">Save Changes</button>
+        </div>
+    </div>
+
     <script>
-        let currentProductId = null;
         let currentPassword = '';
 
         function login() {
@@ -318,15 +338,12 @@
                 return;
             }
             
-            // Test login bằng cách gọi API
             fetchAPI('/api/stats')
                 .then(response => {
                     if (response && response.ok) {
                         document.getElementById('loginContainer').style.display = 'none';
                         document.getElementById('dashboardContainer').style.display = 'block';
-                        loadStats();
-                        loadProducts();
-                        loadOrders();
+                        loadAllData();
                     } else {
                         document.getElementById('loginError').textContent = 'Invalid password';
                         currentPassword = '';
@@ -357,167 +374,231 @@
             });
             
             if (response.status === 401) {
-                alert('Session expired. Please login again.');
+                alert('Session expired or invalid password. Please login again.');
                 logout();
-                return null;
+                throw new Error('Unauthorized');
             }
             return response;
         }
 
+        function loadAllData() {
+            loadStats();
+            loadProducts();
+            loadOrders();
+        }
+
         async function loadStats() {
-            const response = await fetchAPI('/api/stats');
-            if (!response || !response.ok) return;
-            const stats = await response.json();
-            document.getElementById('stats').innerHTML = `
-                <div class="stat-card"><h3>Products</h3><div class="value">${stats.products}</div></div>
-                <div class="stat-card"><h3>Total Keys</h3><div class="value">${stats.totalKeys}</div></div>
-                <div class="stat-card"><h3>Available Keys</h3><div class="value">${stats.availableKeys}</div></div>
-                <div class="stat-card"><h3>Used Keys</h3><div class="value">${stats.usedKeys}</div></div>
-                <div class="stat-card"><h3>Pending Orders</h3><div class="value">${stats.pendingOrders}</div></div>
-                <div class="stat-card"><h3>Completed Orders</h3><div class="value">${stats.completedOrders}</div></div>
-            `;
+            try {
+                const response = await fetchAPI('/api/stats');
+                if (!response.ok) return;
+                const stats = await response.json();
+                document.getElementById('stats').innerHTML = `
+                    <div class="stat-card"><h3>Products</h3><div class="value">${stats.products}</div></div>
+                    <div class="stat-card"><h3>Total Keys</h3><div class="value">${stats.totalKeys}</div></div>
+                    <div class="stat-card"><h3>Available Keys</h3><div class="value">${stats.availableKeys}</div></div>
+                    <div class="stat-card"><h3>Used Keys</h3><div class="value">${stats.usedKeys}</div></div>
+                    <div class="stat-card"><h3>Pending Orders</h3><div class="value">${stats.pendingOrders}</div></div>
+                    <div class="stat-card"><h3>Completed Orders</h3><div class="value">${stats.completedOrders}</div></div>
+                `;
+            } catch(e) { console.error("Failed to load stats"); }
         }
 
         async function loadProducts() {
-            const response = await fetchAPI('/api/products');
-            if (!response || !response.ok) return;
-            const products = await response.json();
-            const tbody = document.querySelector('#productsTable tbody');
-            tbody.innerHTML = '';
-            products.forEach(product => {
-                const row = tbody.insertRow();
-                row.insertCell(0).textContent = product.id;
-                row.insertCell(1).textContent = product.name;
-                row.insertCell(2).textContent = product.price.toLocaleString() + ' VND';
-                row.insertCell(3).textContent = product.stock;
-                const actions = row.insertCell(4);
-                actions.className = 'product-actions';
-                actions.innerHTML = `
-                    <button onclick="showAddKeys(${product.id})">Add Keys</button>
-                    <button onclick="editProduct(${product.id})">Edit</button>
-                    <button class="danger" onclick="deleteProduct(${product.id})">Delete</button>
-                `;
-            });
+            try {
+                const response = await fetchAPI('/api/products');
+                if (!response.ok) return;
+                const products = await response.json();
+                const tbody = document.querySelector('#productsTable tbody');
+                tbody.innerHTML = '';
+                products.forEach(product => {
+                    const row = tbody.insertRow();
+                    row.insertCell(0).textContent = product.id;
+                    row.insertCell(1).textContent = product.name;
+                    row.insertCell(2).textContent = product.price.toLocaleString() + ' VND';
+                    row.insertCell(3).textContent = product.stock;
+                    const actions = row.insertCell(4);
+                    actions.className = 'product-actions';
+                    actions.innerHTML = `
+                        <button onclick="showAddKeys(${product.id})">Add Keys</button>
+                        <button onclick="showEditProduct(${product.id})">Edit</button>
+                        <button class="danger" onclick="deleteProduct(${product.id})">Delete</button>
+                    `;
+                });
+            } catch(e) { console.error("Failed to load products"); }
         }
 
         async function loadOrders() {
-            const pendingResponse = await fetchAPI('/api/orders/pending');
-            const completedResponse = await fetchAPI('/api/orders/completed');
-            
-            if (pendingResponse && pendingResponse.ok) {
-                const orders = await pendingResponse.json();
-                const tbody = document.querySelector('#pendingOrdersTable tbody');
-                tbody.innerHTML = '';
-                orders.forEach(order => {
-                    const row = tbody.insertRow();
-                    row.insertCell(0).textContent = order.code;
-                    row.insertCell(1).textContent = order.user_id;
-                    row.insertCell(2).textContent = order.product_name;
-                    row.insertCell(3).textContent = order.quantity;
-                    row.insertCell(4).textContent = order.amount.toLocaleString() + ' VND';
-                });
-            }
-            
-            if (completedResponse && completedResponse.ok) {
-                const orders = await completedResponse.json();
-                const tbody = document.querySelector('#completedOrdersTable tbody');
-                tbody.innerHTML = '';
-                orders.forEach(order => {
-                    const row = tbody.insertRow();
-                    row.insertCell(0).textContent = order.code;
-                    row.insertCell(1).textContent = order.user_id;
-                    row.insertCell(2).textContent = order.product_name;
-                    row.insertCell(3).textContent = order.quantity;
-                    row.insertCell(4).textContent = order.amount.toLocaleString() + ' VND';
-                });
-            }
+            try {
+                const pendingResponse = await fetchAPI('/api/orders/pending');
+                if (pendingResponse && pendingResponse.ok) {
+                    const orders = await pendingResponse.json();
+                    const tbody = document.querySelector('#pendingOrdersTable tbody');
+                    tbody.innerHTML = '';
+                    orders.forEach(order => {
+                        const row = tbody.insertRow();
+                        row.insertCell(0).textContent = order.code;
+                        row.insertCell(1).textContent = order.user_id;
+                        row.insertCell(2).textContent = order.product_name;
+                        row.insertCell(3).textContent = order.quantity;
+                        row.insertCell(4).textContent = order.amount.toLocaleString() + ' VND';
+                        row.insertCell(5).innerHTML = `<span style="color: orange;">PENDING</span>`;
+                    });
+                }
+
+                const completedResponse = await fetchAPI('/api/orders/completed');
+                if (completedResponse && completedResponse.ok) {
+                    const orders = await completedResponse.json();
+                    const tbody = document.querySelector('#completedOrdersTable tbody');
+                    tbody.innerHTML = '';
+                    orders.forEach(order => {
+                        const row = tbody.insertRow();
+                        row.insertCell(0).textContent = order.code;
+                        row.insertCell(1).textContent = order.user_id;
+                        row.insertCell(2).textContent = order.product_name;
+                        row.insertCell(3).textContent = order.quantity;
+                        row.insertCell(4).textContent = order.amount.toLocaleString() + ' VND';
+                        row.insertCell(5).innerHTML = `<span style="color: green;">COMPLETED</span>`;
+                    });
+                }
+            } catch(e) { console.error("Failed to load orders"); }
         }
 
         async function addProduct() {
-            const name = document.getElementById('productName').value;
-            const price = parseInt(document.getElementById('productPrice').value);
+            const name = document.getElementById('productName').value.trim();
+            const price = document.getElementById('productPrice').value.trim();
             if (!name || !price) {
                 alert('Please fill all fields');
                 return;
             }
-            const response = await fetchAPI('/api/products', {
-                method: 'POST',
-                body: JSON.stringify({ name, price })
-            });
-            if (response && response.ok) {
-                alert('Product added successfully');
-                document.getElementById('productName').value = '';
-                document.getElementById('productPrice').value = '';
-                await loadProducts();
-                await loadStats();
-            } else if (response) {
-                const error = await response.json();
-                alert('Error: ' + error.error);
+            if (parseInt(price) <= 0) {
+                alert('Price must be a positive number');
+                return;
+            }
+            try {
+                const response = await fetchAPI('/api/products', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, price: parseInt(price) })
+                });
+                if (response.ok) {
+                    alert('Product added successfully');
+                    document.getElementById('productName').value = '';
+                    document.getElementById('productPrice').value = '';
+                    loadAllData();
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.error);
+                }
+            } catch (err) {
+                console.error("Add product error:", err);
             }
         }
 
         function showAddKeys(productId) {
-            currentProductId = productId;
-            document.getElementById('addKeysModal').style.display = 'block';
+            document.getElementById('addKeysModal').dataset.productId = productId;
+            document.getElementById('addKeysModal').style.display = 'flex';
         }
 
         async function submitKeys() {
+            const productId = document.getElementById('addKeysModal').dataset.productId;
             const keysText = document.getElementById('keysList').value;
             const keys = keysText.split('\n').map(k => k.trim()).filter(k => k);
             if (keys.length === 0) {
                 alert('Please enter at least one key');
                 return;
             }
-            const response = await fetchAPI(`/api/products/${currentProductId}/keys`, {
-                method: 'POST',
-                body: JSON.stringify({ keys })
-            });
-            if (response && response.ok) {
-                const result = await response.json();
-                alert(`Added ${result.added} keys successfully`);
-                document.getElementById('keysList').value = '';
-                closeModal();
-                await loadProducts();
-                await loadStats();
-            } else if (response) {
-                const error = await response.json();
-                alert('Error: ' + error.error);
+            try {
+                const response = await fetchAPI(`/api/products/${productId}/keys`, {
+                    method: 'POST',
+                    body: JSON.stringify({ keys })
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`Added ${result.added} keys successfully. Skipped ${result.skipped || 0} duplicates.`);
+                    document.getElementById('keysList').value = '';
+                    closeModal('addKeysModal');
+                    loadAllData();
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.error);
+                }
+            } catch (err) {
+                console.error("Submit keys error:", err);
             }
         }
 
-        async function editProduct(productId) {
-            const newName = prompt('Enter new name (leave empty to keep current):');
-            const newPrice = prompt('Enter new price (VND):');
-            if (!newPrice && !newName) return;
-            const response = await fetchAPI(`/api/products/${productId}`, {
-                method: 'PUT',
-                body: JSON.stringify({ name: newName || undefined, price: parseInt(newPrice) })
-            });
-            if (response && response.ok) {
-                alert('Product updated successfully');
-                await loadProducts();
-            } else if (response) {
-                const error = await response.json();
-                alert('Error: ' + error.error);
+        async function showEditProduct(productId) {
+            try {
+                const response = await fetchAPI(`/api/products/${productId}`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert("Error: " + error.error);
+                    return;
+                }
+                const product = await response.json();
+                document.getElementById('editProductId').value = product.id;
+                document.getElementById('editProductName').value = product.name;
+                document.getElementById('editProductPrice').value = product.price;
+                document.getElementById('editProductModal').style.display = 'flex';
+            } catch (err) {
+                console.error("Edit product show error:", err);
+            }
+        }
+
+        async function submitEditProduct() {
+            const productId = document.getElementById('editProductId').value;
+            const newName = document.getElementById('editProductName').value.trim();
+            const newPrice = document.getElementById('editProductPrice').value.trim();
+            if (!newName || !newPrice) {
+                alert('Name and price cannot be empty.');
+                return;
+            }
+            if (parseInt(newPrice) <= 0) {
+                alert('Price must be a positive number');
+                return;
+            }
+            try {
+                const response = await fetchAPI(`/api/products/${productId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ name: newName, price: parseInt(newPrice) })
+                });
+                if (response.ok) {
+                    alert('Product updated successfully');
+                    closeModal('editProductModal');
+                    loadAllData();
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.error);
+                }
+            } catch (err) {
+                console.error("Submit edit product error:", err);
             }
         }
 
         async function deleteProduct(productId) {
-            if (!confirm('Are you sure? This will delete all keys for this product.')) return;
-            const response = await fetchAPI(`/api/products/${productId}`, { method: 'DELETE' });
-            if (response && response.ok) {
-                alert('Product deleted successfully');
-                await loadProducts();
-                await loadStats();
-            } else if (response) {
-                const error = await response.json();
-                alert('Error: ' + error.error);
+            if (!confirm('Are you sure? This will delete the product and all associated orders and keys.')) return;
+            try {
+                const response = await fetchAPI(`/api/products/${productId}`, { method: 'DELETE' });
+                
+                if (response.ok) {
+                    alert('Product deleted successfully');
+                    loadAllData();
+                } else {
+                    const errorData = await response.json().catch(() => null);
+                    if (errorData && errorData.error) {
+                        alert(`Error: ${errorData.error}`);
+                    } else {
+                        alert(`An error occurred. Status: ${response.status}`);
+                    }
+                    console.error('Failed to delete product. Status:', response.status);
+                }
+            } catch (err) {
+                console.error("Delete product error:", err);
+                alert('An unexpected error occurred while trying to delete the product.');
             }
         }
 
-        function closeModal() {
-            document.getElementById('addKeysModal').style.display = 'none';
-            currentProductId = null;
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
         }
 
         document.getElementById('passwordInput').addEventListener('keypress', function(e) {
