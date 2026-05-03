@@ -62,12 +62,12 @@ function extractCode(data) {
 client.once("ready", () => {
   console.log(`Bot logged in: ${client.user.tag}`);
   
-  const stats = db.getDatabaseStats();
-  console.log("Database stats:", stats);
+//  const stats = db.getDatabaseStats();
+//  console.log("Database stats:", stats);
   
-  const products = db.getProducts(true);
-  console.log(`Available products: ${products.length}`);
-  products.forEach(p => console.log(`  - ${p.name}: ${p.stock} keys, ${p.price} VND`));
+//  const products = db.getProducts(true);
+//  console.log(`Available products: ${products.length}`);
+//  products.forEach(p => console.log(`  - ${p.name}: ${p.stock} keys, ${p.price} VND`));
 });
 
 client.on("messageCreate", async (msg) => {
@@ -535,7 +535,7 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ============= DASHBOARD ROUTES (gộp chung port) =============
+// ============= DASHBOARD ROUTES =============
 
 const auth = (req, res, next) => {
   const password = req.headers["x-password"] || req.query.password;
@@ -602,16 +602,25 @@ app.delete("/api/products/:id", auth, (req, res) => {
 });
 
 app.get("/api/orders/pending", auth, (req, res) => {
-  const orders = db.getPendingOrders();
-  res.json(orders);
+  try {
+    const orders = db.getPendingOrders();
+    res.json(orders);
+  } catch (err) {
+    console.error("Error getting pending orders:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get("/api/orders/completed", auth, (req, res) => {
-  const orders = db.getCompletedOrders();
-  res.json(orders);
+  try {
+    const orders = db.getCompletedOrders();
+    res.json(orders);
+  } catch (err) {
+    console.error("Error getting completed orders:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Phục vụ file dashboard.html
 app.get("/dashboard", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "dashboard.html"));
 });
